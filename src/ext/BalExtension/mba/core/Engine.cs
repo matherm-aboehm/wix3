@@ -4,6 +4,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 {
     using System;
     using System.ComponentModel;
+    using System.Globalization;
     using System.Runtime.InteropServices;
     using System.Security;
     using System.Text;
@@ -11,6 +12,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
     /// <summary>
     /// Container class for the <see cref="IBootstrapperEngine"/> interface.
     /// </summary>
+    [SecurityCritical(SecurityCriticalScope.Everything)]
     public sealed class Engine
     {
         // Burn errs on empty strings, so declare initial buffer size.
@@ -33,7 +35,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
             // Wrap the calls to get and set numeric variables.
             this.numericVariables = new Variables<long>(
-                delegate(string name)
+                delegate (string name)
                 {
                     long value;
                     int ret = this.engine.GetVariableNumeric(name, out value);
@@ -44,11 +46,11 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
                     return value;
                 },
-                delegate(string name, long value)
+                delegate (string name, long value)
                 {
                     this.engine.SetVariableNumeric(name, value);
                 },
-                delegate(string name)
+                delegate (string name)
                 {
                     long value;
                     int ret = this.engine.GetVariableNumeric(name, out value);
@@ -59,7 +61,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
             // Wrap the calls to get and set string variables using SecureStrings.
             this.secureStringVariables = new Variables<SecureString>(
-                delegate(string name)
+                delegate (string name)
                 {
                     int length;
                     IntPtr pUniString = getStringVariable(name, out length);
@@ -75,7 +77,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
                         }
                     }
                 },
-                delegate(string name, SecureString value)
+                delegate (string name, SecureString value)
                 {
                     IntPtr pValue = Marshal.SecureStringToCoTaskMemUnicode(value);
                     try
@@ -87,7 +89,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
                         Marshal.FreeCoTaskMem(pValue);
                     }
                 },
-                delegate(string name)
+                delegate (string name)
                 {
                     return containsVariable(name);
                 }
@@ -95,7 +97,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
             // Wrap the calls to get and set string variables.
             this.stringVariables = new Variables<string>(
-                delegate(string name)
+                delegate (string name)
                 {
                     int length;
                     IntPtr pUniString = getStringVariable(name, out length);
@@ -111,7 +113,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
                         }
                     }
                 },
-                delegate(string name, string value)
+                delegate (string name, string value)
                 {
                     IntPtr pValue = Marshal.StringToCoTaskMemUni(value);
                     try
@@ -123,7 +125,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
                         Marshal.FreeCoTaskMem(pValue);
                     }
                 },
-                delegate(string name)
+                delegate (string name)
                 {
                     return containsVariable(name);
                 }
@@ -131,7 +133,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
             // Wrap the calls to get and set version variables.
             this.versionVariables = new Variables<Version>(
-                delegate(string name)
+                delegate (string name)
                 {
                     long value;
                     int ret = this.engine.GetVariableVersion(name, out value);
@@ -142,12 +144,12 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
                     return LongToVersion(value);
                 },
-                delegate(string name, Version value)
+                delegate (string name, Version value)
                 {
                     long version = VersionToLong(value);
                     this.engine.SetVariableVersion(name, version);
                 },
-                delegate(string name)
+                delegate (string name)
                 {
                     long value;
                     int ret = this.engine.GetVariableVersion(name, out value);
@@ -455,14 +457,14 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
         public sealed class Variables<T>
         {
             // .NET 2.0 does not support Func<T, TResult> or Action<T1, T2>.
-            internal delegate T Getter<T>(string name);
-            internal delegate void Setter<T>(string name, T value);
+            internal delegate T Getter(string name);
+            internal delegate void Setter(string name, T value);
 
-            private Getter<T> getter;
-            private Setter<T> setter;
+            private Getter getter;
+            private Setter setter;
             private Predicate<string> contains;
 
-            internal Variables(Getter<T> getter, Setter<T> setter, Predicate<string> contains)
+            internal Variables(Getter getter, Setter setter, Predicate<string> contains)
             {
                 this.getter = getter;
                 this.setter = setter;
@@ -537,7 +539,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
                 // The engine only returns the exact length of the string if the buffer was too small, so calculate it ourselves.
                 for (length = 0; length < capacity; ++length)
                 {
-                    if(0 == Marshal.ReadInt16(pValue, length * UnicodeEncoding.CharSize))
+                    if (0 == Marshal.ReadInt16(pValue, length * UnicodeEncoding.CharSize))
                     {
                         break;
                     }
@@ -560,7 +562,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
         /// </summary>
         /// <param name="pUniString">Pointer to Unicode string.</param>
         /// <param name="length">The string's length.</param>
-        internal SecureString convertToSecureString(IntPtr pUniString, int length)
+        internal static SecureString convertToSecureString(IntPtr pUniString, int length)
         {
             if (IntPtr.Zero == pUniString)
             {
@@ -570,19 +572,29 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
             SecureString value = new SecureString();
             short s;
             char c;
-            for (int charIndex = 0; charIndex < length; charIndex++)
+            try
             {
-                s = Marshal.ReadInt16(pUniString, charIndex * UnicodeEncoding.CharSize);
-                c = (char)s;
-                value.AppendChar(c);
-                s = 0;
-                c = (char)0;
+                for (int charIndex = 0; charIndex < length; charIndex++)
+                {
+                    s = Marshal.ReadInt16(pUniString, charIndex * UnicodeEncoding.CharSize);
+                    c = (char)s;
+                    value.AppendChar(c);
+                    s = 0;
+                    c = (char)0;
+                }
+            }
+            catch
+            {
+                value.Dispose();
+                throw;
             }
             return value;
         }
 
         public static long VersionToLong(Version version)
         {
+            if (version == null)
+                throw new ArgumentNullException(nameof(version));
             // In Windows, each version component has a max value of 65535,
             // so we truncate the version before shifting it, which will overflow if invalid.
             long major = (long)(ushort)version.Major << 48;
@@ -621,15 +633,15 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 
             if (major > UInt16.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("version", String.Format(normalizeVersionFormatString, "Major"));
+                throw new ArgumentOutOfRangeException("version", String.Format(CultureInfo.InvariantCulture, normalizeVersionFormatString, "Major"));
             }
             if (minor > UInt16.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("version", String.Format(normalizeVersionFormatString, "Minor"));
+                throw new ArgumentOutOfRangeException("version", String.Format(CultureInfo.InvariantCulture, normalizeVersionFormatString, "Minor"));
             }
             if (build > UInt16.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("version", String.Format(normalizeVersionFormatString, "Build"));
+                throw new ArgumentOutOfRangeException("version", String.Format(CultureInfo.InvariantCulture, normalizeVersionFormatString, "Build"));
             }
             if (build == -1)
             {
@@ -637,7 +649,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
             }
             if (revision > UInt16.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("version", String.Format(normalizeVersionFormatString, "Revision"));
+                throw new ArgumentOutOfRangeException("version", String.Format(CultureInfo.InvariantCulture, normalizeVersionFormatString, "Revision"));
             }
             if (revision == -1)
             {

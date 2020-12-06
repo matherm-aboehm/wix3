@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Resources;
+using System.Security;
 
 [assembly: AssemblyCompany(".NET Foundation")]
 [assembly: AssemblyCopyright("Copyright (c) .NET Foundation and contributors. All rights reserved.")]
@@ -48,6 +49,7 @@ namespace Microsoft.Tools.WindowsInstallerXml
         /// </summary>
         public static string VSExtensionsLandingUrl = "http://wixtoolset.org/releases/";
 
+        [SecurityCritical]
         public static string ReplacePlaceholders(string original, Assembly assembly)
         {
             if (null != assembly)

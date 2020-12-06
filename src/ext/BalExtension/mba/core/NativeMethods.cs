@@ -1,9 +1,12 @@
 // Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information.
 
+[assembly: System.Security.AllowPartiallyTrustedCallers]
+[assembly: System.Security.SecurityCritical]
 namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
 {
     using System;
     using System.Runtime.InteropServices;
+    using System.Security;
 
     /// <summary>
     /// Contains native constants, functions, and structures for this assembly.
@@ -21,16 +24,32 @@ namespace Microsoft.Tools.WindowsInstallerXml.Bootstrapper
         #endregion
 
         #region Functions
-        [DllImport("shell32.dll", ExactSpelling = true, SetLastError = true)]
-        internal static extern IntPtr CommandLineToArgvW(
+        [SuppressUnmanagedCodeSecurity]
+        [SecurityCritical]
+        [DllImport("shell32.dll", EntryPoint = "CommandLineToArgvW", ExactSpelling = true, SetLastError = true)]
+        private static extern IntPtr CommandLineToArgvWNative(
             [MarshalAs(UnmanagedType.LPWStr)] string lpCmdLine,
             out int pNumArgs
             );
+        [SecurityTreatAsSafe]
+        [SecurityCritical]
+        internal static IntPtr CommandLineToArgvW(string lpCmdLine, out int pNumArgs)
+        {
+            return CommandLineToArgvWNative(lpCmdLine, out pNumArgs);
+        }
 
-        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
-        internal static extern IntPtr LocalFree(
+        [SuppressUnmanagedCodeSecurity]
+        [SecurityCritical]
+        [DllImport("kernel32.dll", EntryPoint = "LocalFree", ExactSpelling = true, SetLastError = true)]
+        private static extern IntPtr LocalFreeNative(
             IntPtr hMem
             );
+        [SecurityTreatAsSafe]
+        [SecurityCritical]
+        internal static IntPtr LocalFree(IntPtr hMem)
+        {
+            return LocalFreeNative(hMem);
+        }
         #endregion
     }
 }
