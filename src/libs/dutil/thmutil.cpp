@@ -318,14 +318,22 @@ DAPI_(HRESULT) ThemeLoadFromResource(
     DWORD cbResource = 0;
     LPWSTR sczXml = NULL;
     IXMLDOMDocument* pixd = NULL;
+    LPSTR szBuffer = NULL;
 
     hr = ResReadData(hModule, szResource, &pvResource, &cbResource);
     ExitOnFailure(hr, "Failed to read theme from resource.");
 
-    // Ensure returned resource buffer is null-terminated.
-    reinterpret_cast<BYTE *>(pvResource)[cbResource - 1] = '\0';
+    // Resource memory is read-only, for evidence see:
+    //https://stackoverflow.com/questions/43239424/write-access-violation-when-trying-to-modify-array
+    // So copy the resource buffer to a new writable buffer.
+    szBuffer = static_cast<CHAR*>(MemAlloc(cbResource + 1, TRUE));
+    ExitOnNull(szBuffer, hr, E_OUTOFMEMORY, "Failed to allocate buffer for resource.");
+    memcpy_s(szBuffer, cbResource + 1, pvResource, cbResource);
 
-    hr = StrAllocStringAnsi(&sczXml, reinterpret_cast<LPCSTR>(pvResource), cbResource, CP_UTF8);
+    // Ensure returned resource buffer is null-terminated.
+    szBuffer[cbResource] = '\0';
+
+    hr = StrAllocStringAnsi(&sczXml, reinterpret_cast<LPCSTR>(szBuffer), cbResource, CP_UTF8);
     ExitOnFailure(hr, "Failed to convert XML document data from UTF-8 to unicode string.");
 
     hr = XmlLoadDocument(sczXml, &pixd);
@@ -337,6 +345,7 @@ DAPI_(HRESULT) ThemeLoadFromResource(
 LExit:
     ReleaseObject(pixd);
     ReleaseStr(sczXml);
+    ReleaseMem(szBuffer);
 
     return hr;
 }
