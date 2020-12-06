@@ -273,4 +273,11 @@
     <ProjectReference Include="..\winterop\winterop.vcxproj" />
   </ItemGroup>
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), wix.proj))\tools\WixBuild.targets" />
+  <Target Name="BeforeBuild"
+          DependsOnTargets="$(BeforeBuildDependsOn)" >
+    <MSBuild Projects="$(WixToolsSrcFolder)\tools.proj"
+             Targets="Build"
+             StopOnFirstFailure="true"
+             UnloadProjectsOnCompletion="true" />
+  </Target>
 </Project>
